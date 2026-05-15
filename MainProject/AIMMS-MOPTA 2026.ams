@@ -1,0 +1,593 @@
+## ams_version=1.0
+
+Model Main_AIMMS_MOPTA_2026 {
+	Section Math_Program {
+		MathematicalProgram Goal_Function {
+			Objective: total_cost;
+			Direction: minimize;
+			Constraints: AllConstraints;
+			Variables: AllVariables;
+			Type: MIP;
+		}
+	}
+	Section Sets {
+		Set Costs {
+			Index: cc;
+			Definition: {
+				data { 'Dedicated Fleet', 'Open Market', 'Fixed Fleet' };
+			}
+		}
+		Set Locations {
+			Index: l, l_from, l_to, sub_l;
+		}
+		Set Routes {
+			Index: r;
+		}
+		Set Carriers {
+			Index: t;
+		}
+		Set Orders {
+			Index: o, op;
+		}
+		Set Days {
+			SubsetOf: Integers;
+			Index: d;
+			Definition: ElementRange(0, 13);
+		}
+		Set Weeks {
+			SubsetOf: Integers;
+			Index: w;
+		}
+	}
+	Section Parameters_ {
+		DeclarationSection Route_based {
+			Parameter RouteDeadheadMiles {
+				IndexDomain: r;
+			}
+			Parameter RouteDeadheadRatio {
+				IndexDomain: r;
+			}
+			Parameter RouteStops {
+				IndexDomain: r;
+			}
+			Parameter RouteTotalMiles {
+				IndexDomain: r;
+			}
+			Parameter RouteWeek {
+				IndexDomain: r;
+			}
+			Parameter RouteCovers {
+				IndexDomain: (r, o);
+				Range: binary;
+			}
+			Parameter RouteCost {
+				IndexDomain: r;
+			}
+			Parameter RouteCarrier {
+				IndexDomain: (r, t);
+				Range: binary;
+			}
+		}
+		DeclarationSection Order_based {
+			Parameter LocationLat {
+				IndexDomain: l;
+			}
+			Parameter LocationLon {
+				IndexDomain: l;
+			}
+			StringParameter LocationType {
+				IndexDomain: l;
+			}
+			Parameter CarrierLocation {
+				IndexDomain: l;
+				Definition: if exists(r | RouteCarrierHome(r) = l) then 1 else 0 endif;
+			}
+			Parameter OpenMarketCost {
+				IndexDomain: o;
+			}
+			Parameter DedicatedFleetCost {
+				IndexDomain: o;
+			}
+			Parameter Mileage {
+				IndexDomain: o;
+			}
+			Parameter DueDay {
+				IndexDomain: o;
+			}
+			Parameter WeekOf {
+				IndexDomain: o;
+			}
+			Parameter LoadDays {
+				IndexDomain: o;
+				Text: "The amount of days it takes a driver minimum to deliver the order.";
+			}
+			Parameter LoadStart {
+				IndexDomain: o;
+				Text: "The days the order has to be picked up in order to arrive in time.";
+			}
+		}
+	}
+	Section Variablen {
+		Variable z {
+			IndexDomain: r;
+			Text: "Activate route r";
+			Range: binary;
+		}
+		Variable v {
+			IndexDomain: o;
+			Text: "Order sent to open market";
+			Range: binary;
+		}
+		Variable ExcessCost {
+			IndexDomain: (t, w);
+			Text: "Cost paid to carrier t in week w that exceeds the paid 4000$";
+			Range: nonnegative;
+		}
+		Variable total_cost {
+			Text: "Total freight cost (objective)";
+			Range: free;
+			Definition: {
+				(Card(Carriers) * Card(Weeks) * 4000)   !! Fixed Sunk Cost
+				+ sum(o, v(o) * OpenMarketCost(o))      !! Open Market Penalties
+				+ sum((t, w), ExcessCost(t, w))         !! Only pay more if driver exceeds $4k
+			}
+		}
+	}
+	Section Constraint_ {
+		Constraint CostAboveMinimum {
+			IndexDomain: (t, w);
+			Definition: ExcessCost(t, w) >= sum(r | RouteCarrier(r, t) and RouteWeek(r) = w, RouteCost(r) * z(r)) - 4000;
+		}
+		Constraint OrderFulfilled {
+			IndexDomain: o;
+			Definition: {
+				sum(r | RouteCovers(r, o), z(r))
+				+ v(o)
+				= 1
+			}
+		}
+		Constraint WeeklyCap {
+			IndexDomain: (t, w);
+			Definition: {
+				sum(r | RouteCarrier(r, t) and RouteWeek(r) = w,
+				            RouteTotalMiles(r) * z(r))
+				        <= 450 * 5
+			}
+		}
+	}
+	Section Input_Output {
+		Procedure WriteSolution {
+			Body: {
+				write AllVariables to file "solution.csv";
+			}
+		}
+		Procedure ReadLargeData {
+			Body: {
+				dex::AddMapping("RoutesParams",  "routes-mapping.xml");
+				dex::AddMapping("RouteCarrier",  "route-carrier-mapping.xml");
+				dex::AddMapping("RouteCovers",   "route-covers-mapping.xml");
+				
+				dex::ReadFromFile(
+				    dataFile:    "routes_params.csv",
+				    mappingName: "RoutesParams",
+				    emptyIdentifiers: 1
+				);
+				dex::ReadFromFile(
+				    dataFile:    "route_carrier.csv",
+				    mappingName: "RouteCarrier",
+				    emptyIdentifiers: 0
+				);
+				dex::ReadFromFile(
+				    dataFile:    "route_covers.csv",
+				    mappingName: "RouteCovers",
+				    emptyIdentifiers: 0
+				);
+			}
+		}
+		Procedure ReadInputData {
+			Body: {
+				py::run_python_script("read_input_data.py");
+				DialogMessage(
+				   "Carriers="     + FormatString("%i", Card(Carriers))     +
+				   ", Orders="     + FormatString("%i", Card(Orders))       +
+				   ", Days="       + FormatString("%i", Card(Days))         +
+				   ", Weeks="      + FormatString("%i", Card(Weeks))        +
+				   ", DueDay="     + FormatString("%i", Card(DueDay))       +
+				   ", WeekOf="     + FormatString("%i", Card(WeekOf))       +
+				   ", LoadDays="   + FormatString("%i", Card(LoadDays))     +
+				   ", LoadStart="  + FormatString("%i", Card(LoadStart))    +
+				   ", Mileage="    + FormatString("%i", Card(Mileage))      +
+				   ", OpenMkt="    + FormatString("%i", Card(OpenMarketCost)) +
+				   ", Dedicated="  + FormatString("%i", Card(DedicatedFleetCost))
+				);
+			}
+			Comment: {
+				"Data is loaded externally via load_data_aimms.py (aimmspy standalone script).
+				Run from the command line:  python load_data_aimms.py [project.aimms]
+				aimmspy cannot be called from inside a running AIMMS session."
+			}
+		}
+	}
+	Section UI {
+		Section Workflow {
+			DeclarationSection Workflow_Declaration {
+				StringParameter MainWorkflow {
+					IndexDomain: (webui::indexWorkflowOrder,webui::indexWorkflowSpec);
+					Definition: {
+						data{
+							('1', 'title'): "Workflow"
+						}
+					}
+				}
+				StringParameter MainWorkflowSteps {
+					IndexDomain: (webui::indexWorkflowOrder,webui::indexNoOfPages,webui::indexWorkflowPageSpec);
+					Definition: {
+						{
+						  ( '1', 1, 'displayText'       ) : "Data",
+						  ( '1', 1, 'icon'              ) : "aimms-database-export",
+						  ( '1', 1, 'pageId'            ) : FormatString("%e", page_Data),
+						  ( '1', 1, 'tooltip'           ) : "",
+						  ( '1', 1, 'workflowPageState' ) : "Active",
+						  ( '1', 1, 'pageDataState'     ) : "",
+						  ( '1', 1, 'redirectPageId'    ) : "",
+						
+						  ( '1', 10, 'displayText'       ) : "Control Panel",
+						  ( '1', 10, 'icon'              ) : "aimms-cog",
+						  ( '1', 10, 'pageId'            ) : FormatString("%e", page_ControlPanel),
+						  ( '1', 10, 'tooltip'           ) : "",
+						  ( '1', 10, 'workflowPageState' ) : "Active",
+						  ( '1', 10, 'pageDataState'     ) : "",
+						  ( '1', 10, 'redirectPageId'    ) : "",
+						
+						  ( '1', 20, 'displayText'       ) : "Results",
+						  ( '1', 20, 'icon'              ) : "aimms-calculator",
+						  ( '1', 20, 'pageId'            ) : FormatString("%e", page_Results),
+						  ( '1', 20, 'tooltip'           ) : "",
+						  ( '1', 20, 'workflowPageState' ) : "Active",
+						  ( '1', 20, 'pageDataState'     ) : "",
+						  ( '1', 20, 'redirectPageId'    ) : ""
+						}
+					}
+				}
+				ElementParameter page_Data {
+					Range: webui::AllPageIds;
+					Definition: 'data';
+				}
+				ElementParameter page_ControlPanel {
+					Range: webui::AllPageIds;
+					Definition: 'control_panel';
+				}
+				ElementParameter page_Results {
+					Range: webui::AllPageIds;
+					Definition: 'results';
+				}
+			}
+		}
+		Section Map {
+			DeclarationSection Map_Declaration {
+				Parameter CostBreakdown {
+					IndexDomain: cc;
+				}
+				StringParameter RouteOrder1Origin {
+					IndexDomain: r;
+				}
+				StringParameter RouteOrder1Dest {
+					IndexDomain: r;
+				}
+				StringParameter RouteOrder2Origin {
+					IndexDomain: r;
+				}
+				StringParameter RouteOrder2Dest {
+					IndexDomain: r;
+				}
+				StringParameter RouteOrder3Origin {
+					IndexDomain: r;
+				}
+				StringParameter RouteOrder3Dest {
+					IndexDomain: r;
+				}
+				StringParameter RouteOrder4Origin {
+					IndexDomain: r;
+				}
+				StringParameter RouteOrder4Dest {
+					IndexDomain: r;
+				}
+				ElementParameter SelectedCarrier {
+					Text: "Carrier to display on the map";
+					Range: Carriers;
+					webui::UponChangeProcedure: BuildMapData;
+				}
+				Parameter ArcActive {
+					IndexDomain: (l_from, l_to);
+					Range: binary;
+				}
+				StringParameter RouteCarrierHome {
+					IndexDomain: r;
+				}
+				Parameter RouteSelected {
+					IndexDomain: r_active;
+					Range: binary;
+				}
+				Set ActiveRoutes {
+					SubsetOf: Routes;
+					Index: r_active;
+					Definition: {
+						{ r | z(r) = 1 and RouteCarrier(r, SelectedCarrier) }
+					}
+				}
+				Parameter SelectedCarrierHomeLon;
+				Parameter SelectedCarrierHomeLat;
+				Parameter IsCarrierHome {
+					IndexDomain: l;
+					Definition: {
+						if SelectedCarrier and 
+						   RouteCarrierHome(first(r | RouteCarrier(r, SelectedCarrier))) = 
+						   l
+						then 1 else 0 endif
+					}
+				}
+				StringParameter Home_Icon {
+					IndexDomain: l;
+					Definition: "aimms-home";
+				}
+				StringParameter Map_Icon {
+					IndexDomain: l;
+					Definition: {
+						if LocationType(l) = "home" then
+						    "aimms-home"
+						elseif LocationType(l) = "destination" then
+						    "aimms-factory"
+						else "aimms-truck"
+						endif
+					}
+				}
+				Parameter Map_IconSize {
+					IndexDomain: l;
+					Definition: 5;
+				}
+			}
+		}
+		Section Page_Actions {
+			DeclarationSection Page_Action_Declaration {
+				StringParameter PA_Solver {
+					IndexDomain: webui::indexPageActionSpec;
+					Definition: {
+						{   ( 'displaytext' ) : "Start Solver",
+						    ( 'procedure' )   : "MainExecution",
+						    ( 'state' )       : "active",
+						    ( 'icon' )        : "aimms-calculator2"
+						}
+					}
+				}
+				StringParameter PA_DataUpload {
+					IndexDomain: webui::indexPageActionSpec;
+					Definition: {
+						{   ( 'displaytext' ) : "Upload Data",
+						    ( 'procedure' )   : "ReadInputData",
+						    ( 'state' )       : "active",
+						    ( 'icon' )        : "aimms-database"
+						}
+					}
+				}
+			}
+		}
+	}
+	Procedure PopulateActiveRoutes {
+		Body: {
+			RouteSelected(r_active) := 1;
+		}
+	}
+	Procedure UpdateCosts {
+		Body: {
+			CostBreakdown('Dedicated Fleet') :=
+			    sum(r | z(r) = 1, RouteCost(r));
+			
+			CostBreakdown('Open Market') :=
+			    sum(o | v(o) = 1, OpenMarketCost(o));
+			
+			CostBreakdown('Fixed Fleet') := 4000 * Card(Carriers) * Card(Weeks);
+		}
+	}
+	Procedure ApplyRouteSelection {
+		Body: {
+			BuildMapData;
+		}
+	}
+	Procedure BuildMapData {
+		Body: {
+			! Clear previous arc data
+			empty ArcActive;
+			
+			if SelectedCarrier then
+				for r | RouteSelected(r) = 1 do
+			
+					! Look up the carrier home for this route
+					ep_home  := StringToElement(Locations, RouteCarrierHome(r), 0);
+					ep_orig1 := StringToElement(Locations, RouteOrder1Origin(r), 0);
+					ep_dest1 := StringToElement(Locations, RouteOrder1Dest(r), 0);
+			
+					!set the carrier home for display
+					SelectedCarrierHomeLat := LocationLat(ep_home);
+			       		SelectedCarrierHomeLon := LocationLon(ep_home);
+			
+					! Arc 1: home -> mill1 (deadhead)
+					if ep_home <> '' and ep_orig1 <> '' then
+						ArcActive(ep_home, ep_orig1) := 1;
+					endif;
+			
+					! Arc 2: mill1 -> dest1 (loaded)
+					if ep_orig1 <> '' and ep_dest1 <> '' then
+						ArcActive(ep_orig1, ep_dest1) := 1;
+					endif;
+			
+					if RouteStops(r) = 1 then
+						! Arc 3: dest1 -> home (deadhead)
+						if ep_dest1 <> '' and ep_home <> '' then
+							ArcActive(ep_dest1, ep_home) := 1;
+						endif;
+					endif;
+			
+					if RouteStops(r) = 2 then
+						ep_orig2 := StringToElement(Locations, RouteOrder2Origin(r), 0);
+						ep_dest2 := StringToElement(Locations, RouteOrder2Dest(r), 0);
+			
+						! Arc 3: dest1 -> mill2 (deadhead)
+						if ep_dest1 <> '' and ep_orig2 <> '' then
+							ArcActive(ep_dest1, ep_orig2) := 1;
+						endif;
+			
+						! Arc 4: mill2 -> dest2 (loaded)
+						if ep_orig2 <> '' and ep_dest2 <> '' then
+							ArcActive(ep_orig2, ep_dest2) := 1;
+						endif;
+			
+						! Arc 5: dest2 -> home (deadhead)
+						if ep_dest2 <> '' and ep_home <> '' then
+							ArcActive(ep_dest2, ep_home) := 1;
+						endif;
+					endif;
+			
+					if RouteStops(r) = 3 then
+						ep_orig2 := StringToElement(Locations, RouteOrder2Origin(r), 0);  ! ADD
+						ep_dest2 := StringToElement(Locations, RouteOrder2Dest(r), 0);    ! ADD
+						ep_orig3 := StringToElement(Locations, RouteOrder3Origin(r), 0);
+						ep_dest3 := StringToElement(Locations, RouteOrder3Dest(r), 0);
+						! Arc 3: dest1 -> mill2 (deadhead)
+						if ep_dest1 <> '' and ep_orig2 <> '' then
+							ArcActive(ep_dest1, ep_orig2) := 1;
+						endif;
+						! Arc 4: mill2 -> dest2 (loaded)
+						if ep_orig2 <> '' and ep_dest2 <> '' then
+							ArcActive(ep_orig2, ep_dest2) := 1;
+						endif;
+						! Arc 5: dest2 -> mill3 (deadhead)
+						if ep_dest2 <> '' and ep_orig3 <> '' then
+							ArcActive(ep_dest2, ep_orig3) := 1;
+						endif;
+						! Arc 6: mill3 -> dest3 (loaded)
+						if ep_orig3 <> '' and ep_dest3 <> '' then
+							ArcActive(ep_orig3, ep_dest3) := 1;
+						endif;
+						! Arc 7: dest3 -> home (deadhead)
+						if ep_dest3 <> '' and ep_home <> '' then
+							ArcActive(ep_dest3, ep_home) := 1;
+						endif;
+						endif;
+			
+					if RouteStops(r) = 4 then
+						ep_orig2 := StringToElement(Locations, RouteOrder2Origin(r), 0);  ! ADD
+						ep_dest2 := StringToElement(Locations, RouteOrder2Dest(r), 0);    ! ADD
+						ep_orig3 := StringToElement(Locations, RouteOrder3Origin(r), 0);  ! ADD
+						ep_dest3 := StringToElement(Locations, RouteOrder3Dest(r), 0);    ! ADD
+						ep_orig4 := StringToElement(Locations, RouteOrder4Origin(r), 0);
+						ep_dest4 := StringToElement(Locations, RouteOrder4Dest(r), 0);
+						! Arc 3: dest1 -> mill2 (deadhead)
+						if ep_dest1 <> '' and ep_orig2 <> '' then
+							ArcActive(ep_dest1, ep_orig2) := 1;
+						endif;
+						! Arc 4: mill2 -> dest2 (loaded)
+						if ep_orig2 <> '' and ep_dest2 <> '' then
+							ArcActive(ep_orig2, ep_dest2) := 1;
+						endif;
+						! Arc 5: dest2 -> mill3 (deadhead)
+						if ep_dest2 <> '' and ep_orig3 <> '' then
+							ArcActive(ep_dest2, ep_orig3) := 1;
+						endif;
+						! Arc 6: mill3 -> dest3 (loaded)
+						if ep_orig3 <> '' and ep_dest3 <> '' then
+							ArcActive(ep_orig3, ep_dest3) := 1;
+						endif;
+						! Arc 7: dest3 -> mill4 (deadhead)
+						if ep_dest3 <> '' and ep_orig4 <> '' then
+							ArcActive(ep_dest3, ep_orig4) := 1;
+						endif;
+						! Arc 8: mill4 -> dest4 (loaded)
+						if ep_orig4 <> '' and ep_dest4 <> '' then
+							ArcActive(ep_orig4, ep_dest4) := 1;
+						endif;
+						! Arc 9: dest4 -> home (deadhead)
+						if ep_dest4 <> '' and ep_home <> '' then
+							ArcActive(ep_dest4, ep_home) := 1;
+						endif;
+					endif;
+			
+				endfor;
+			
+			endif;
+		}
+		ElementParameter ep_orig3 {
+			Range: Locations;
+		}
+		ElementParameter ep_dest3 {
+			Range: Locations;
+		}
+		ElementParameter ep_orig4 {
+			Range: Locations;
+		}
+		ElementParameter ep_dest4 {
+			Range: Locations;
+		}
+		ElementParameter ep_home {
+			Range: Locations;
+		}
+		ElementParameter ep_orig1 {
+			Range: Locations;
+		}
+		ElementParameter ep_dest1 {
+			Range: Locations;
+		}
+		ElementParameter ep_orig2 {
+			Range: Locations;
+		}
+		ElementParameter ep_dest2 {
+			Range: Locations;
+		}
+	}
+	Procedure MainExecution {
+		Body: {
+			ShowProgressWindow;
+			solve Goal_Function;
+			PopulateActiveRoutes;
+			BuildMapData;
+			UpdateCosts;
+		}
+	}
+	Procedure PreMainTermination {
+		Body: {
+			return DataManagementExit();
+		}
+		Comment: {
+			"Add termination statements here that require all libraries to be still alive.
+			Return 1 if you allow the termination sequence to continue.
+			Return 0 if you want to cancel the termination sequence."
+		}
+	}
+	Procedure MainTermination {
+		Body: {
+			return 1;
+		}
+		Comment: {
+			"Add termination statements here that do not require all libraries to be still alive.
+			Return 1 to allow the termination sequence to continue.
+			Return 0 if you want to cancel the termination sequence.
+			It is recommended to only use the procedure PreMainTermination to cancel the termination sequence and let this procedure always return 1."
+		}
+	}
+	Section Quantities_and_Units {
+		Comment: {
+			"This section contains all the units and quantities that are added automatically by AIMMS.
+			It is recommended to declare all your quantities here."
+		}
+		Quantity SI_Time_Duration {
+			BaseUnit: s;
+			Conversions: minute->s : #-># * 60;
+			Comment: {
+				"Expresses the value for the duration of periods.
+				
+				The unit s has been added automatically because it is a required unit for AimmsWebUI.
+				
+				The unit minute has been added automatically because it is a required unit for AimmsWebUI."
+			}
+		}
+	}
+}

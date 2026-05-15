@@ -1,0 +1,17 @@
+﻿* AIMMS
+Case_compatibility Aimms_4_80
+iteration_limit 700000
+rounding_compatibility Aimms_3_7
+time_limit 600
+use_UTC_forCaseAndStartEndDate 1
+* CBC 2.9
+* COPT 7.2
+* CPOptimizer 22.1
+* GUROBI 13.0
+* IPOPT 3.11
+* MINOS
+* PATH 4.7
+* SNOPT 7.2
+* NETSOL
+* Environment
+Default_UI 0

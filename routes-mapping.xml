@@ -1,0 +1,61 @@
+<AimmsCSVMapping>
+  <RowMapping>
+
+    <ColumnMapping 
+      name="route_id"
+      binds-to="r" />
+
+    <ColumnMapping 
+      name="stop_count"
+      maps-to="RouteStops(r)" />
+
+    <ColumnMapping 
+      name="RouteCarrierHome"
+      maps-to="RouteCarrierHome(r)" />
+
+    <ColumnMapping 
+      name="route_cost"
+      maps-to="RouteCost(r)" />
+
+    <ColumnMapping 
+      name="week_of"
+      maps-to="RouteWeek(r)" />
+
+    <ColumnMapping 
+      name="total_miles"
+      maps-to="RouteTotalMiles(r)" />
+
+    <ColumnMapping 
+      name="deadhead_miles"
+      maps-to="RouteDeadheadMiles(r)" />
+
+    <ColumnMapping 
+      name="deadhead_ratio"
+      maps-to="RouteDeadheadRatio(r)" />
+
+    <ColumnMapping
+      name="RouteOrder1Origin"
+      maps-to="RouteOrder1Origin(r)" />
+    <ColumnMapping
+      name="RouteOrder1Dest" 
+      maps-to="RouteOrder1Dest(r)" />
+    <ColumnMapping
+      name="RouteOrder2Origin"
+      maps-to="RouteOrder2Origin(r)" />
+    <ColumnMapping
+      name="RouteOrder2Dest"
+      maps-to="RouteOrder2Dest(r)" />
+    <ColumnMapping
+      name="RouteOrder3Origin"
+      maps-to="RouteOrder3Origin(r)" />
+    <ColumnMapping
+      name="RouteOrder3Dest"
+      maps-to="RouteOrder3Dest(r)" />
+    <ColumnMapping
+      name="RouteOrder4Origin"
+      maps-to="RouteOrder4Origin(r)" />
+    <ColumnMapping
+      name="RouteOrder4Dest"
+      maps-to="RouteOrder4Dest(r)" />
+  </RowMapping>
+</AimmsCSVMapping>

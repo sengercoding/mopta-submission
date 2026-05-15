@@ -1,0 +1,24 @@
+﻿There is 96.969 Mb in use.
+'cross' is not expected.
+The symbol '(' is not expected but a symbol like 'identifier' is expected.
+The symbol '(' is not expected but a symbol like 'identifier' is expected.
+Warning: After 722060 iterations CBC 2.9 found an integer solution to Phase1Model.
+The minimum found for total_cost is 1409907.649.
+Warning at line 5 in user-defined function section "MainExecution":
+After 722060 iterations CBC 2.9 found an integer solution to Phase1Model.
+The minimum found for total_cost is 1409907.649.
+Python error executing script: TypeError: 'Set' object is not iterable
+
+At:
+  phase2_routing.py(17): <module>
+
+Warning: After 700207 iterations CBC 2.9 found an integer solution to Phase1Model.
+The minimum found for total_cost is 1409907.649.
+Warning at line 5 in user-defined function section "MainExecution":
+After 700207 iterations CBC 2.9 found an integer solution to Phase1Model.
+The minimum found for total_cost is 1409907.649.
+Python error executing script: TypeError: 'Variable' object is not iterable
+
+At:
+  phase2_routing.py(81): <module>
+

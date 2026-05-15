@@ -1,0 +1,7 @@
+<AimmsCSVMapping>
+    <RowMapping>
+      <ColumnMapping name="r"     binds-to="r" />
+      <ColumnMapping name="o"     binds-to="o" />
+      <ColumnMapping name="value" maps-to="RouteCovers(r,o)" />
+    </RowMapping>
+</AimmsCSVMapping>

@@ -1,0 +1,7 @@
+<AimmsCSVMapping>
+    <RowMapping>
+      <ColumnMapping name="r"     binds-to="r"/>
+      <ColumnMapping name="t"     binds-to="t"/>
+      <ColumnMapping name="value" maps-to="RouteCarrier(r,t)" />
+    </RowMapping>
+</AimmsCSVMapping> 

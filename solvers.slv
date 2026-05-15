@@ -1,0 +1,10 @@
+! Format AIMMS380
+! solver name       /  dll name               /  model types for which solver is the default
+CBC 2.9             /  libAimmsCbc29.dll      /  MIP
+COPT 7.2            /  libcopt72.dll          / 
+CPOptimizer 22.1    /  libcpopt221.dll        /  COP
+GUROBI 13.0         /  libgrb130.dll          /  LP QP MIQP QCP MIQCP MINLP
+IPOPT 3.11          /  libAimmsIpopt311.dll   /  NLP
+MINOS               /  libminos.dll           / 
+PATH 4.7            /  libpath47.dll          /  MCP
+SNOPT 7.2           /  libsnopt72.dll         / 
